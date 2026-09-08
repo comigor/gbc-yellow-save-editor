@@ -178,9 +178,10 @@ static void edit_pokemon(uint8_t location, uint8_t slot) {
     gotoxy(0, 5);
     printf("EXP ");
     ui_number(pokemon.exp);
+    gotoxy(0, 6);
+    printf("HP %u", (unsigned int)pokemon.current_hp);
     gotoxy(0, 7);
-    printf("HP %u/%u", (unsigned int)pokemon.current_hp,
-           (unsigned int)pokemon.max_hp);
+    printf("Max %u", (unsigned int)pokemon.max_hp);
     gotoxy(0, 8);
     printf("ATK %u", (unsigned int)pokemon.attack);
     gotoxy(0, 9);

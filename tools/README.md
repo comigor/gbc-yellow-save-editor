@@ -23,4 +23,6 @@ The generator updates the table prefix in `src/yellow_data.c` while retaining it
 
 The decoder expands zero runs, undoes differential/XOR bitplanes, converts column-major data into row-major 2bpp tiles, and aligns fronts in a 7×7 tile canvas. Menu icons use the game's first-frame OAM mirroring rules, including the asymmetric helix icon. Banks 8–15 hold 19 fronts each (18 in the last bank); bank 7 holds the menu icons and category IDs. The renderer occupies fixed ROM so changing asset banks cannot bank out its own code.
 
+`tests/graphics_smoke.py` pins front-tile SHA-256 digests computed with pret's independent `pkmncompress -u` decoder at Bulbasaur `0D:4000`, Pikachu `0B:4D55`, and Mew `09:69D2`, then independently pads the tile grid. These hashes do not come from this extractor or its manifest. Menu-category checks pin the `MonPartyData` values at category transitions (including Dex 24/25 and 89/90), detecting swapped nybbles and a missing index-zero entry. The rendering run checks full-width HP values and compares the sprite-area pixel bytes on each non-summary tab before and after changing species.
+
 Use the private build commands in the root README. Generated C, binaries and screenshots contain game artwork; keep them out of public source and artifacts.

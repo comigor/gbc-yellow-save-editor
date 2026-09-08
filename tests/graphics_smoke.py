@@ -1,8 +1,9 @@
 import argparse
+import hashlib
 import re
 from pathlib import Path
 
-from fixtures import disk_image, yellow_save
+from fixtures import checksum, disk_image, yellow_save
 from pyboy import PyBoy
 from x7_model import X7Model
 
@@ -47,6 +48,17 @@ def main():
         )
         generated.extend(data[i : i + 784] for i in range(0, len(data), 784))
     assert len(generated) == 151 and all(len(data) == 784 for data in generated)
+    # Hashes from pokeyellow's decoder at verified bank:address pairs, not this manifest.
+    known_fronts = {
+        1: "9171e685081a5e75b170aa0797a649d2ff440ceef1a387b54989a893ea0d0d6f",
+        25: "8d07df66160a1590be7a5d08492c278f355c888fdb65f1f978987dc48d1f2f13",
+        151: "093b9f1530f2ae153855048b775902570b02d83a033bb4e1ec4c47e9716087c3",
+    }
+    for dex, digest in known_fronts.items():
+        assert hashlib.sha256(generated[dex - 1]).hexdigest() == digest, (
+            "Wrong front",
+            dex,
+        )
     icons_source = (args.assets / "icons.c").read_text()
     ids_section = (
         icons_source.split("yellow_menu_icon_ids", 1)[1]
@@ -60,7 +72,22 @@ def main():
     icon_tiles = bytes(
         int(value, 16) for value in re.findall(r"0x([0-9a-fA-F]{2})\b", tiles_section)
     )
-    image = disk_image(yellow_save())
+    for dex, category in {
+        1: 7,
+        3: 7,
+        4: 0,
+        24: 8,
+        25: 10,
+        89: 0,
+        90: 2,
+        151: 0,
+    }.items():
+        assert icon_ids[dex] == category, ("Wrong menu category", dex)
+    save = yellow_save()
+    save[0x2F35:0x2F37] = (65535).to_bytes(2, "big")
+    save[0x2F56:0x2F58] = (65535).to_bytes(2, "big")
+    save[0x3523] = checksum(save, 0x2598, 0x3523)
+    image = disk_image(save)
     model = X7Model(image)
     gb = PyBoy(str(args.rom), window="null", sound_emulated=False, cgb=True)
     gb.set_emulation_speed(0)
@@ -116,6 +143,22 @@ def main():
         wait("Left/Right: Tabs")
         gb.tick(20, True)
         verify(25)
+        screen = gb.screen.image.convert("RGB")
+        current_hp = screen.crop((24, 48, 64, 56))
+        maximum_hp = screen.crop((32, 56, 72, 64))
+        assert len(current_hp.getcolors()) > 1, "Current HP is missing"
+        assert current_hp.tobytes() == maximum_hp.tobytes(), "HP digits clipped"
+        tab_crops = {}
+        for name in ("Moves / PP", "HP DV", "Stat experience"):
+            tap("right")
+            wait(name)
+            gb.tick(20, True)
+            tab_crops[name] = gb.screen.image.crop((104, 40, 160, 96)).tobytes()
+            gb.screen.image.save(
+                output / (name.replace(" / ", "-").replace(" ", "-") + ".png")
+            )
+        tap("right")
+        wait("Summary")
         reads = model.commands[17]
         for dex in [1, 20, 39, 58, 77, 96, 115, 134, 151]:
             tap("a")
@@ -132,9 +175,13 @@ def main():
             wait("Left/Right: Tabs")
             gb.tick(20, True)
             verify(dex)
+        for name, expected in tab_crops.items():
+            tap("right")
+            wait(name)
+            gb.tick(20, True)
+            actual = gb.screen.image.crop((104, 40, 160, 96)).tobytes()
+            assert actual == expected, ("Stale species artwork on tab", name)
         tap("right")
-        wait("Moves / PP")
-        tap("left")
         wait("Summary")
         gb.tick(20, True)
         verify(151)
