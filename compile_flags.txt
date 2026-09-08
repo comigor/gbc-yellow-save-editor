@@ -1,0 +1,5 @@
+-Isrc
+-Ivendor/fatfs
+-DX7_FATFS
+-DX7_HOST_TEST
+-std=c99

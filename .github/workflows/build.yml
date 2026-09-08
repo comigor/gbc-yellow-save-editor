@@ -1,0 +1,18 @@
+name: Build ROM
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ROM and check save integrity
+        run: docker build --output type=local,dest=dist .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yellow-editor-rom
+          path: dist/yellow-editor.gbc
+          if-no-files-found: error

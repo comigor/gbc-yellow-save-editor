@@ -1,0 +1,6 @@
+/build/
+/.experiment/
+/.venv/
+/dist/
+__pycache__/
+*.pyc

@@ -1,0 +1,93 @@
+Pokemon Yellow Save Editor - Reference Data Sources
+====================================================
+
+This project's save-format knowledge and immutable data tables
+(src/yellow_data.c, src/yellow.c offsets and algorithms) were derived
+from the following sources. PKHeX was consulted for format facts and
+Yellow-specific constants; its C# implementation is not included.
+The base data tables come from kasbuunk/Pokemon, with its MIT notice
+retained below. Pokemon is a trademark of Nintendo,
+Creatures Inc., and GAME FREAK inc.; this project is an independent
+fan-made tool and is not affiliated with or endorsed by them.
+
+1. kasbuunk/Pokemon (MIT License)
+   Repository: https://github.com/kasbuunk/Pokemon
+   Pinned commit: ac72f04af1026b4023015c239b34730b8cccb15e
+   (2026-07-18, "fix(storage): fit the center column into short
+   viewports")
+   Used: Gen 1 save layout (crates/pksave/src/gen1/offsets.rs, verified
+   against pokered.sym), record structures (party.rs, pokemon.rs,
+   boxes.rs, items.rs, trainer.rs, bcd.rs), checksum algorithm
+   (checksum.rs), stat/experience formulas and growth-rate coefficients
+   (stats.rs), text charmap (text.rs), and the generated species/move/
+   item/type tables (data/generated/*.rs) that seed src/yellow_data.c.
+   License text: see below ("kasbuunk/Pokemon MIT License").
+   kasbuunk's tables are themselves generated from pret/pokered.
+
+2. pret/pokered (no license file; unlicensed disassembly)
+   Repository: https://github.com/pret/pokered
+   Pinned commit: a1a22aaf84d1675bcdbaeb194592379d586d838e
+   Used: constants/charmap.asm (English character encoding),
+   engine/items/item_effects.asm AddBonusPP (the PP Up bonus formula:
+   each PP Up adds min(7, floor(base_pp / 5))), data/growth_rates.asm
+   coefficients (via the kasbuunk tables), wPlayerStarter semantics.
+   pokered carries no license; only factual constants and formulas
+   were referenced, and no pokered source text is included here.
+
+3. pret/pokeyellow (no license file; unlicensed disassembly)
+   Repository: https://github.com/pret/pokeyellow
+   Pinned commit: e89ead154b9968aa50eed9328ff2b38b6c194382
+   Used: cross-check of base stats against Yellow.
+
+4. kwsch/PKHeX (GPL-3.0; format/data reference)
+   Repository: https://github.com/kwsch/PKHeX
+   Pinned commit: e0e63bc87837ad2d9c8f8fda4efdbf5f2933db08
+   (2026-09-06, "Minor tweaks")
+   Used: PKHeX.Core/Resources/byte/personal/personal_y (binary
+   PersonalTable.Y) to obtain the four Yellow-specific catch rates that
+   differ from Red/Blue: Pikachu 163 (vs 190), Kadabra 96 (vs 100),
+   Dragonair 27 (vs 45), Dragonite 9 (vs 45); and
+   Legality/Encounters/Templates/Gen1/EncounterStatic1.cs
+   (LightBallPikachuCatchRate = 163) as corroboration. Read-only
+   reference: no PKHeX code is included in this project.
+   ItemStorage1.General also informed the allowed bag item IDs.
+
+Regeneration
+------------
+tools/generate_yellow_data.py regenerates src/yellow_data.c from the
+pinned kasbuunk/Pokemon checkout and the PKHeX
+personal_y blob for the four Yellow catch-rate overrides. Run it from
+the repository root with the reference checkouts available; the
+generator records the same pinned commits in its output header.
+
+5. X7 SD transport and filesystem
+   src/x7_disk.c derives from untoxa/VGM_player (Copyright 2024 Toxa,
+   MIT; full license in vendor/petitfatfs/DRIVER-LICENSE), with the
+   SD write path and FatFs integration reused from the local
+   modretro-chromatic project. FatFs R0.16 includes official patches
+   1 and 2; see vendor/fatfs/LICENSE.txt and provenance.json.
+
+--------
+kasbuunk/Pokemon MIT License
+--------
+MIT License
+
+Copyright (c) 2025-2026 Kas Buunk
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

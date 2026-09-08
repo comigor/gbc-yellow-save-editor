@@ -1,0 +1,31 @@
+{
+  "release": "FatFs R0.16 with official patches 1 and 2",
+  "source": "https://elm-chan.org/fsw/ff/arc/ff16.zip",
+  "archive_sha256": "99f7dc1f7e095356e4a9e3dbe29959090d8b948afe2bbc5441e52fdf4b85449e",
+  "patches": [
+    {
+      "url": "https://elm-chan.org/fsw/ff/patch/ff16p1.diff",
+      "sha256": "7996ddc3135f3d534a8153f7d75d587030e5c8551b003c3b7ee823ffb7fc64bf"
+    },
+    {
+      "url": "https://elm-chan.org/fsw/ff/patch/ff16p2.diff",
+      "sha256": "5cd39f1fc299f0f1dec9fa1ce544dc0bc048b2f6eb3b8161476ed20f9cf1e290"
+    }
+  ],
+  "files": [
+    "source/ff.c",
+    "source/ff.h",
+    "source/ffconf.h",
+    "source/diskio.h",
+    "LICENSE.txt"
+  ],
+  "changes": [
+    "GBDK ROM bank 1 and BANKED annotations on enabled public filesystem functions; create_chain, get_fileinfo and create_name reside in fixed ROM to fit bank 1",
+    "Namespaced unsigned BYTE/WORD/DWORD as FF_BYTE/FF_WORD/FF_DWORD to avoid GBDK signed legacy typedefs",
+    "Moved constant-disabled branches behind preprocessor guards, cast escaped SFN bytes explicitly, and replaced unavailable strchr with an equivalent character switch for the enabled SFN path",
+    "diskio.h includes ff.h directly so disk types do not depend on caller include order",
+    "Read/write/create/sync/seek and directory enumeration enabled with FF_FS_MINIMIZE=1; shared sector buffer, CP437 short names, no RTC/mkfs/exFAT/TRIM; ignores cached FSInfo hints",
+    "Mark FSInfo dirty on every successful allocation, including an unknown in-memory free count, so sync invalidates a previously known on-disk count rather than preserving stale free space",
+    "Save-editor application refuses non-FAT32 volumes before opening files"
+  ]
+}
