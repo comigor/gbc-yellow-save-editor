@@ -31,7 +31,7 @@ uint8_t browser_choose(char *path) BANKED {
   strcpy(folder, "/");
   for (;;) {
     if (reload) {
-      result = storage_list(folder, start);
+      result = storage_list(folder, start, storage_progress);
       if (result) {
         show_storage_error(result);
         return 0;

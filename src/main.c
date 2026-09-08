@@ -469,8 +469,10 @@ static uint8_t save_changes(void) {
                   "Creates a .BAK first\nthen overwrites save.\n\nFAT32 is NOT "
                   "atomic.\nPower loss can\ndamage the card."))
     return 1;
+  storage_progress(ST_PREPARE, 0, 0);
   yellow_flush();
-  result = storage_commit(save_progress);
+  storage_progress(ST_PREPARE, 1, 1);
+  result = storage_commit(storage_progress);
   if (result) {
     show_storage_error(result);
     return 0;
@@ -497,6 +499,12 @@ void editor_run(void) BANKED {
   ui_page("YELLOW SAVE EDITOR");
   ui_line(3, "Chromatic / X7");
   ui_line(4, "English Yellow");
+#ifdef YELLOW_GRAPHICS
+  ui_line(11, "Graphics: ON");
+#else
+  ui_line(11, "Graphics: OFF");
+  ui_line(12, "Use sprites ROM");
+#endif
   ui_line(6, "Flush Yellow's save");
   ui_line(7, "via X7 menu first.");
   ui_line(9, "Keep an independent");
@@ -505,19 +513,19 @@ void editor_run(void) BANKED {
   while (!(ui_key() & J_START)) {
   }
   for (;;) {
-    result = storage_mount();
+    result = storage_mount(storage_progress);
     if (result) {
       show_storage_error(result);
       return;
     }
     if (!browser_choose(path))
       return;
-    ui_page("Loading save...");
-    result = storage_load(path);
+    result = storage_load(path, storage_progress);
     if (result) {
       show_storage_error(result);
       return;
     }
+    storage_progress(ST_VALIDATE, 0, 0);
     error = yellow_init();
     if (error) {
       core_error(error);
@@ -530,6 +538,7 @@ void editor_run(void) BANKED {
                 "Invalid structure or\nchecksum. Original\nwas not modified.");
       continue;
     }
+    storage_progress(ST_VALIDATE, 1, 1);
     if (!yellow_is_yellow_hint() &&
         !ui_confirm("Confirm game",
                     "Cannot identify game\nfrom save alone.\n\nIs this "

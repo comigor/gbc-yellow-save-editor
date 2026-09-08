@@ -13,6 +13,6 @@ jobs:
         run: docker build --output type=local,dest=dist .
       - uses: actions/upload-artifact@v4
         with:
-          name: yellow-editor-rom
+          name: yellow-editor-artwork-free
           path: dist/yellow-editor.gbc
           if-no-files-found: error
