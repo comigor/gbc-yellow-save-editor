@@ -1,4 +1,5 @@
 #include "browser.h"
+#include "graphics.h"
 #include "storage.h"
 #include "text.h"
 #include "ui.h"
@@ -53,7 +54,7 @@ static void get_nickname(uint8_t location, uint8_t slot) {
   nickname[10] = 0;
 }
 
-static void edit_moves(uint8_t location, uint8_t slot) {
+static uint8_t edit_moves(uint8_t location, uint8_t slot) {
   uint8_t selection = 0, key, move, kind, base;
   for (;;) {
     yellow_get_pokemon(location, slot, &pokemon);
@@ -71,9 +72,10 @@ static void edit_moves(uint8_t location, uint8_t slot) {
     }
     ui_line(14, "Up/Down: field");
     ui_line(15, "A: Edit  B: Back");
+    ui_line(16, "Left/Right: Tabs");
     key = ui_key();
-    if (key & J_B)
-      return;
+    if (key & (J_B | J_LEFT | J_RIGHT))
+      return key;
     if (key & J_UP) {
       if (selection)
         --selection;
@@ -102,7 +104,7 @@ static void edit_moves(uint8_t location, uint8_t slot) {
   }
 }
 
-static void edit_training(uint8_t location, uint8_t slot, uint8_t dv_mode) {
+static uint8_t edit_training(uint8_t location, uint8_t slot, uint8_t dv_mode) {
   uint8_t selection = 0, key, i, dvs[4];
   for (;;) {
     yellow_get_pokemon(location, slot, &pokemon);
@@ -124,9 +126,10 @@ static void edit_training(uint8_t location, uint8_t slot, uint8_t dv_mode) {
                             ((dvs[2] & 1) << 1) | (dvs[3] & 1)));
     }
     ui_line(15, "A: Edit  B: Back");
+    ui_line(16, "Left/Right: Tabs");
     key = ui_key();
-    if (key & J_B)
-      return;
+    if (key & (J_B | J_LEFT | J_RIGHT))
+      return key;
     if (key & J_UP) {
       if (selection)
         --selection;
@@ -150,8 +153,16 @@ static void edit_training(uint8_t location, uint8_t slot, uint8_t dv_mode) {
 }
 
 static void edit_pokemon(uint8_t location, uint8_t slot) {
-  uint8_t selection = 0, key;
+  uint8_t selection = 0, key, tab = 0;
   for (;;) {
+    if (tab) {
+      key = tab == 1 ? edit_moves(location, slot)
+                     : edit_training(location, slot, tab == 2);
+      if (key & J_B)
+        return;
+      tab = (key & J_RIGHT) ? (tab + 1) % 4 : tab - 1;
+      continue;
+    }
     yellow_get_pokemon(location, slot, &pokemon);
     if (!pokemon.valid) {
       ui_notice("Invalid Pokemon", "This slot cannot\nbe edited.");
@@ -160,40 +171,47 @@ static void edit_pokemon(uint8_t location, uint8_t slot) {
     get_nickname(location, slot);
     ui_page(nickname);
     species_label(pokemon.dex, text);
-    gotoxy(0, 3);
-    printf("%cSpecies %s", (char)(selection == 0 ? '>' : ' '), text);
+    ui_line(1, "Summary    1/4");
+    ui_line(2, text);
     gotoxy(0, 4);
-    printf("%cNickname", (char)(selection == 1 ? '>' : ' '));
+    printf("Level %u", (unsigned int)pokemon.level);
     gotoxy(0, 5);
-    printf("%cLevel %u", (char)(selection == 2 ? '>' : ' '),
-           (unsigned int)pokemon.level);
-    gotoxy(0, 6);
-    printf("%cEXP ", (char)(selection == 3 ? '>' : ' '));
+    printf("EXP ");
     ui_number(pokemon.exp);
     gotoxy(0, 7);
-    printf("%cMoves / PP", (char)(selection == 4 ? '>' : ' '));
-    gotoxy(0, 8);
-    printf("%cDVs", (char)(selection == 5 ? '>' : ' '));
-    gotoxy(0, 9);
-    printf("%cStat experience", (char)(selection == 6 ? '>' : ' '));
-    gotoxy(0, 11);
     printf("HP %u/%u", (unsigned int)pokemon.current_hp,
            (unsigned int)pokemon.max_hp);
-    gotoxy(0, 12);
-    printf("ATK %u DEF %u", (unsigned int)pokemon.attack,
-           (unsigned int)pokemon.defense);
+    gotoxy(0, 8);
+    printf("ATK %u", (unsigned int)pokemon.attack);
+    gotoxy(0, 9);
+    printf("DEF %u", (unsigned int)pokemon.defense);
+    gotoxy(0, 10);
+    printf("SPD %u", (unsigned int)pokemon.speed);
+    gotoxy(0, 11);
+    printf("SPC %u", (unsigned int)pokemon.special);
+#ifdef YELLOW_GRAPHICS
+    graphics_front(pokemon.dex);
+#endif
     gotoxy(0, 13);
-    printf("SPD %u SPC %u", (unsigned int)pokemon.speed,
-           (unsigned int)pokemon.special);
+    printf("%cSpecies %cNickname", (char)(selection == 0 ? '>' : ' '),
+           (char)(selection == 1 ? '>' : ' '));
+    gotoxy(0, 14);
+    printf("%cLevel   %cEXP", (char)(selection == 2 ? '>' : ' '),
+           (char)(selection == 3 ? '>' : ' '));
     ui_line(15, "A: Edit  B: Back");
+    ui_line(16, "Left/Right: Tabs");
     key = ui_key();
     if (key & J_B)
       return;
+    if (key & (J_LEFT | J_RIGHT)) {
+      tab = (key & J_RIGHT) ? 1 : 3;
+      continue;
+    }
     if (key & J_UP) {
       if (selection)
         --selection;
     } else if (key & J_DOWN) {
-      if (selection < 6)
+      if (selection < 3)
         ++selection;
     } else if (key & J_A) {
       switch (selection) {
@@ -223,15 +241,6 @@ static void edit_pokemon(uint8_t location, uint8_t slot) {
                            0))
           core_error(yellow_set_exp(location, slot, number));
         break;
-      case 4:
-        edit_moves(location, slot);
-        break;
-      case 5:
-        edit_training(location, slot, 1);
-        break;
-      case 6:
-        edit_training(location, slot, 0);
-        break;
       }
     }
   }
@@ -250,6 +259,18 @@ static void pokemon_list(void) {
              location - 1 == yellow_current_box() ? " (current)" : "");
     else
       printf("Party");
+#ifdef YELLOW_GRAPHICS
+    first = (selection / 5) * 5;
+    for (i = first; i < count && i < first + 5; ++i) {
+      yellow_get_pokemon(location, i, &pokemon);
+      graphics_icon(pokemon.dex, i - first);
+      get_nickname(location, i);
+      gotoxy(0, 3 + (i - first) * 2);
+      printf("%c", (char)(selection == i ? '>' : ' '));
+      gotoxy(4, 3 + (i - first) * 2);
+      printf("%u %s", (unsigned int)(i + 1), nickname);
+    }
+#else
     first = selection & 0xf8u;
     for (i = first; i < count && i < first + 8; ++i) {
       get_nickname(location, i);
@@ -257,6 +278,7 @@ static void pokemon_list(void) {
       printf("%c%u %s", (char)(selection == i ? '>' : ' '),
              (unsigned int)(i + 1), nickname);
     }
+#endif
     if (!count)
       ui_line(5, "Empty");
     ui_line(13, "Left/Right: box");

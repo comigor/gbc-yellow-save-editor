@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM debian:12-slim AS toolchain
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl make python3 clang libc6-dev \
@@ -18,6 +19,14 @@ WORKDIR /src
 FROM toolchain AS build
 COPY . .
 RUN make -j2 && make check
+
+FROM toolchain AS private-build
+COPY . .
+RUN --mount=type=secret,id=yellow_rom,required=true \
+    make -j2 YELLOW_ROM=/run/secrets/yellow_rom && make check
+
+FROM scratch AS private-artifact
+COPY --from=private-build /src/build/private/yellow-editor.gbc /yellow-editor.gbc
 
 FROM scratch AS artifact
 COPY --from=build /src/build/yellow-editor.gbc /yellow-editor.gbc

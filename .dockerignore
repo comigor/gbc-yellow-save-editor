@@ -3,5 +3,13 @@
 build
 dist
 .venv
+private
+dist-private
+**/*.gb
+**/*.gbc
+**/*.gb.gz
+**/*.gbc.gz
+**/*.srm
+**/*.sav
 **/__pycache__
 **/*.pyc

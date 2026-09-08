@@ -11,6 +11,7 @@ This is a fan project, not affiliated with Nintendo, Game Freak, The Pokémon Co
 - Money, individual badges, and Pikachu friendship.
 - Bag item type and quantity, adding and removing items (20-slot limit).
 - The current box uses the game's authoritative working copy rather than its potentially stale bank copy.
+- Pokémon detail tabs: Summary, Moves, DVs and Stat EXP. Optional private graphics builds add authentic Yellow front sprites and shared Gen I menu icons.
 
 World/event state, PC items, Pokédex, daycare, original-trainer identity, and Pokémon creation/deletion/reordering are not editor features. Unknown save bytes are preserved. Changing species/moves does not enforce encounter legality or legal learnsets.
 
@@ -41,6 +42,7 @@ World/event state, PC items, Pokédex, daycare, original-trainer identity, and P
 | File browser | Up/Down selects; Left/Right pages; SELECT shows full name; A opens; B goes to parent; START exits |
 | Editor menus | Up/Down selects; A opens; B returns; START on the main menu saves |
 | Pokémon list | Left/Right switches party and boxes; Up/Down selects Pokémon |
+| Pokémon details | Left/Right switches Summary / Moves / DVs / Stat EXP; Up/Down selects fields; A edits; B returns to the list |
 | Numeric editor | Up/Down changes value; Left/Right changes decimal step; A applies; B cancels |
 | Nickname editor | Left/Right moves cursor; Up/Down changes character; SELECT inserts a space; A applies; B cancels |
 | Badges | A toggles selected badge |
@@ -87,6 +89,37 @@ docker run --rm -v "$PWD:/src" yellow-editor-toolchain make check
 
 The compiler and source inputs are pinned; OS packages are resolved from Debian 12 repositories at build time, so the container image itself is not bit-for-bit pinned.
 
+## Optional sprites from your own Yellow ROM
+
+The default build and public CI artifacts are **artwork-free**. To enable sprites, supply your own English Pokémon Yellow ROM locally. The extractor accepts the verified 1 MiB release with SHA-256 `8cbaa499397e4f1a679c992ea9382a2dd7942ab398b48c19829c2d9529de47bf`; other revisions are rejected, not guessed.
+
+```sh
+make GBDK_HOME=/path/to/gbdk YELLOW_ROM="/path/to/Pokemon Yellow.gb" -j2
+```
+
+Output: **`build/private/yellow-editor.gbc`** (256 KiB), separate from the 128 KiB artwork-free build. All 151 front sprites are decoded during the build, padded to 56×56, and stored in ROM banks. Party/box lists use Yellow's shared 16×16 category icons. The gamepad UI loads tiles directly from ROM, not SD. Sprites are monochrome, using the same four-shade palette as the editor.
+
+Docker uses a gzip-compressed BuildKit secret: the verified ROM compresses below BuildKit's 500 KiB secret limit, and is decompressed only in the extractor's memory. The source game ROM is never copied into an image layer.
+
+```sh
+mkdir -p private
+gzip -9 -n -c "/path/to/Pokemon Yellow.gb" > private/yellow.gb.gz
+docker build --target private-artifact --no-cache-filter private-build \
+  --secret id=yellow_rom,src=private/yellow.gb.gz \
+  --output type=local,dest=dist-private .
+```
+
+Output: `dist-private/yellow-editor.gbc`. BuildKit secret contents do not affect its cache key; `--no-cache-filter private-build` ensures a different supplied ROM is validated rather than reusing an earlier private layer.
+
+**Keep the resulting ROM, generated tiles, screenshots and private Docker build cache private.** They contain copyrighted game artwork and are not covered by this project's source-code license. The source ROM is read-only; extraction never modifies it. No download of game ROMs or sprite assets occurs during a build. `private/`, private outputs and common ROM/save extensions are excluded from Git and Docker's ordinary build context. Do not force-add them or upload private cache layers to a public registry.
+
+Private graphics verification (requires the private build and the emulator dependencies below):
+
+```sh
+.venv/bin/python tests/graphics_smoke.py
+.venv/bin/python tests/rom_smoke.py --rom build/private/yellow-editor.gbc
+```
+
 ## Build locally
 
 Install [GBDK 4.5.0](https://github.com/gbdk-2020/gbdk-2020/releases/tag/4.5.0), then:
@@ -115,6 +148,7 @@ Screenshots and structured evidence are written under `build/rom-smoke/`. Fixtur
 - Disposable FAT32 scenarios cover fragmented files, existing backup names, a full card, backup write failures, corrupt backup readback and overwrite failures.
 - The compiled ROM has completed a gamepad-driven PyBoy run through the X7 SPI model: party/box level changes, money, bag quantity, a new backup, overwrite and remounted readback verification. The backup was byte-identical to the original and the sentinel file remained unchanged.
 - The browser regression measured nine SD sector reads per cursor movement before the fix and zero afterward. It covers long-name display, full-name viewing, page changes and opening the selected save through its short alias. Host cases cover 255-character names, cross-sector LFN records and corrupt-LFN fallback.
+- Private graphics: all 151 decoded fronts matched an independent decoder. PyBoy verified front/icon pixels, all eight graphics ROM banks, detail-tab navigation and save readback. Selecting graphics performed no SD reads or writes. Native macOS and Docker Linux builds are byte-identical for both artwork-free and private ROMs. Graphics have not yet been checked on physical hardware.
 - The owner has run the editor on Chromatic/X7 and reported successful save loading and responsive editing; these browser fixes are emulator-verified pending a hardware retry. **Not yet verified:** a complete physical save-write/readback roundtrip, power interruption recovery, or an edited save booted in retail Yellow.
 
 ## Implementation
@@ -126,6 +160,7 @@ Screenshots and structured evidence are written under `build/rom-smoke/`. Fixtur
 | `src/storage.c` | Save-file browser access, source identity, backup and readback verification |
 | `src/x7_disk.c` | EverDrive X7 SPI SD transport |
 | `src/main.c`, `src/browser.c`, `src/ui.c` | 160×144 gamepad interface |
+| `src/graphics.c`, `tools/extract_yellow_graphics.py` | Optional ROM-banked rendering and private build-time extraction |
 | `vendor/fatfs` | FatFs R0.16 plus official patches 1 and 2; GBDK banked entry points |
 | `tests` | Synthetic save fixtures, disposable FAT32 images, core/storage checks and ROM SPI model |
 

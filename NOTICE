@@ -67,6 +67,13 @@ generator records the same pinned commits in its output header.
    modretro-chromatic project. FatFs R0.16 includes official patches
    1 and 2; see vendor/fatfs/LICENSE.txt and provenance.json.
 
+6. Optional private graphics
+   tools/extract_yellow_graphics.py reads a user-supplied Yellow ROM.
+   Graphics format and pointer layout are referenced from pret/pokeyellow.
+   The extractor's own implementation is distributed; game artwork is not.
+   Generated graphics and any editor ROM containing them retain their
+   original rights and are excluded from public source and CI artifacts.
+
 --------
 kasbuunk/Pokemon MIT License
 --------
