@@ -138,6 +138,18 @@ int main(int argc, char **argv) {
   if (argc > 3)
     test_fault = argv[3];
   assert(storage_mount() == STORE_OK);
+  if (!strcmp(argv[1], "list")) {
+    char name[256];
+    uint8_t i;
+    assert(storage_list("/", 0) == STORE_OK);
+    for (i = 0; i < storage_count; ++i) {
+      storage_name(i, name);
+      printf("%s|%s\n", storage_entries[i].name, name);
+    }
+    assert(test_writes == 0);
+    fclose(test_disk);
+    return 0;
+  }
   assert(storage_list("/", 0) == STORE_OK);
   assert(storage_count == 1 && !strcmp(storage_entries[0].name, "YELLOW.SRM"));
   result = storage_load("/YELLOW.SRM");

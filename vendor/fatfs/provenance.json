@@ -20,11 +20,12 @@
     "LICENSE.txt"
   ],
   "changes": [
-    "GBDK ROM bank 1 and BANKED annotations on enabled public filesystem functions; create_chain, get_fileinfo and create_name reside in fixed ROM to fit bank 1",
+    "GBDK ROM bank 1 and BANKED annotations on enabled public filesystem functions; create_chain, get_fileinfo, create_name and display_lfn_piece reside in fixed ROM to fit bank 1",
     "Namespaced unsigned BYTE/WORD/DWORD as FF_BYTE/FF_WORD/FF_DWORD to avoid GBDK signed legacy typedefs",
     "Moved constant-disabled branches behind preprocessor guards, cast escaped SFN bytes explicitly, and replaced unavailable strchr with an equivalent character switch for the enabled SFN path",
     "diskio.h includes ff.h directly so disk types do not depend on caller include order",
     "Read/write/create/sync/seek and directory enumeration enabled with FF_FS_MINIMIZE=1; shared sector buffer, CP437 short names, no RTC/mkfs/exFAT/TRIM; ignores cached FSInfo hints",
+    "Display-only LFN collection in f_readdir validates ordinal sequence, entry structure, terminator/padding and short-name checksum; FILINFO.lfname holds an ASCII projection while all lookup/create/write paths remain SFN-only",
     "Mark FSInfo dirty on every successful allocation, including an unknown in-memory free count, so sync invalidates a previously known on-disk count rather than preserving stale free space",
     "Save-editor application refuses non-FAT32 volumes before opening files"
   ]

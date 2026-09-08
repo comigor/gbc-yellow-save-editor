@@ -127,3 +127,21 @@ def disk_image(save, full=False, fragmented=False, collision=False, spc=1):
         struct.pack_into('<I',data,start*512+fill_index*32+28,len(chain)*spc*512)
     for i in range(2): data[(32+i*fatsz)*512:(32+(i+1)*fatsz)*512]=fat
     return data
+def lfn_entries(name, alias):
+    checksum = 0
+    for byte in alias:
+        checksum = (((checksum & 1) << 7) + (checksum >> 1) + byte) & 255
+    encoded = list(struct.unpack('<' + 'H' * (len(name.encode('utf-16le')) // 2), name.encode('utf-16le')))
+    if len(encoded) % 13:
+        encoded.append(0)
+        encoded.extend([65535] * ((-len(encoded)) % 13))
+    entries = []
+    for ordinal in range(len(encoded) // 13, 0, -1):
+        entry = bytearray(32)
+        entry[0] = ordinal | (64 if ordinal == len(encoded) // 13 else 0)
+        entry[11] = 15
+        entry[13] = checksum
+        for offset, char in zip([1,3,5,7,9,14,16,18,20,22,24,28,30], encoded[(ordinal-1)*13:ordinal*13]):
+            struct.pack_into('<H', entry, offset, char)
+        entries.append(entry)
+    return entries

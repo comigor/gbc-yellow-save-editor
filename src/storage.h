@@ -8,6 +8,7 @@
 
 typedef struct {
   char name[13];
+  char label[19];
   uint8_t directory;
 } StorageEntry;
 extern StorageEntry storage_entries[STORAGE_PAGE];
@@ -38,7 +39,9 @@ enum {
   ST_FINISHED
 };
 uint8_t storage_mount(void) BANKED;
+/* Enumeration uses save scratch WRAM; finish/discard edits before browsing. */
 uint8_t storage_list(const char *path, uint16_t start) BANKED;
+void storage_name(uint8_t index, char *name) BANKED;
 uint8_t storage_load(const char *path) BANKED;
 uint8_t storage_commit(void (*progress)(uint8_t stage)) BANKED;
 #endif

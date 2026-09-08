@@ -2361,17 +2361,51 @@ static void create_xdir (
 /* Read an object from the directory                                     */
 /*-----------------------------------------------------------------------*/
 
-#define DIR_READ_FILE(dp) dir_read(dp, 0)
-#define DIR_READ_LABEL(dp) dir_read(dp, 1)
+#define DIR_READ_FILE(dp) dir_read(dp, 0, 0)
+#define DIR_READ_LABEL(dp) dir_read(dp, 1, 0)
+
+/* Display-only names keep all path lookup and write operations on short aliases. */
+static FF_BYTE display_lfn_checksum(const FF_BYTE* name)
+{
+	FF_BYTE sum = 0, i;
+	for (i = 0; i < 11; i++)
+		sum = ((sum & 1) ? 0x80 : 0) + (sum >> 1) + name[i];
+	return sum;
+}
+
+static FF_BYTE display_lfn_piece(const FF_BYTE* dir, TCHAR* name, FF_BYTE ordinal) NONBANKED
+{
+	static const FF_BYTE offsets[13] = {1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30};
+	FF_WORD index = (FF_WORD)(ordinal - 1) * 13;
+	FF_BYTE i, ended = 0;
+	for (i = 0; i < 13; i++, index++) {
+		FF_WORD c = ld_16(dir + offsets[i]);
+		if (ended) {
+			if (c != 0xFFFF) return 0;
+		} else if (!c) {
+			if (!(dir[0] & 0x40) || index > 255) return 0;
+			name[index] = 0;
+			ended = 1;
+		} else {
+			if (index >= 255 || c == 0xFFFF || c < 32 || c == '/' || c == '\\') return 0;
+			name[index] = c < 127 ? (TCHAR)c : '?';
+		}
+	}
+	if ((dir[0] & 0x40) && !ended) name[index] = 0;
+	return 1;
+}
 
 static FRESULT dir_read (
 	DIR* dp,		/* Pointer to the directory object */
-	int vol			/* Filtered by 0:file/directory or 1:volume label */
+	int vol,
+	TCHAR* display_name
 )
 {
 	FRESULT res = FR_NO_FILE;
 	FATFS *fs = dp->obj.fs;
 	FF_BYTE attr, et;
+	FF_BYTE expected = 0, checksum = 0, complete = 0;
+	if (display_name) display_name[0] = 0;
 #if FF_USE_LFN
 	FF_BYTE ord = 0xFF, sum = 0xFF;
 #endif
@@ -2421,6 +2455,31 @@ static FRESULT dir_read (
 				}
 			}
 #else		/* Non LFN configuration */
+			if (display_name) {
+				if (et != DDEM && attr == AM_LFN) {
+					FF_BYTE ordinal = et & 0x1F;
+					if (et & 0x40) {
+						expected = ordinal;
+						checksum = dp->dir[13];
+						complete = 0;
+						display_name[0] = 0;
+					}
+					if (!(et & 0xA0) && ordinal && ordinal <= 20 && expected == ordinal &&
+						checksum == dp->dir[13] && dp->dir[12] == 0 && ld_16(dp->dir + 26) == 0 &&
+						dp->dir[DIR_Attr] == AM_LFN && display_lfn_piece(dp->dir, display_name, ordinal)) {
+						expected--;
+						complete = expected == 0;
+					} else {
+						expected = complete = 0;
+						display_name[0] = 0;
+					}
+				} else if (et != DDEM && et != '.' && !(attr & AM_VOL)) {
+					if (!complete || checksum != display_lfn_checksum(dp->dir)) display_name[0] = 0;
+				} else {
+					expected = complete = 0;
+					display_name[0] = 0;
+				}
+			}
 			if (et != DDEM && et != '.' && attr != AM_LFN && (int)((attr & ~AM_ARC) == AM_VOL) == vol) {	/* Is it a valid entry? */
 				break;
 			}
@@ -2431,6 +2490,7 @@ static FRESULT dir_read (
 	}
 
 	if (res != FR_OK) dp->sect = 0;		/* Terminate the read operation on error or EOT */
+	if (res != FR_OK && display_name) display_name[0] = 0;
 	return res;
 }
 
@@ -4880,7 +4940,7 @@ FRESULT f_readdir (
 		} else {
 			INIT_NAMEBUFF(fs);
 			fno->fname[0] = 0;				/* Clear file information */
-			res = DIR_READ_FILE(dp);		/* Read an item */
+			res = dir_read(dp, 0, fno->lfname);
 			if (res == FR_NO_FILE) res = FR_OK;	/* Ignore end of directory */
 			if (res == FR_OK) {				/* A valid entry is found */
 				get_fileinfo(dp, fno);		/* Get the object information */

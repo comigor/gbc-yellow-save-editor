@@ -19,7 +19,7 @@ World/event state, PC items, Pokédex, daycare, original-trainer identity, and P
 - Game Boy Color mode: the editor uses CGB banked WRAM. The Chromatic supplies this in normal color mode.
 - EverDrive GB X7 and an SDv2 FAT32 card with 512-byte sectors. This is an X7-specific register driver, not a generic flash-cart SD API. Other flash carts are unsupported.
 - An **English/international Pokémon Yellow** raw battery save of exactly 32,768 bytes (`.srm` or `.sav`). Japanese save layouts, RTC trailers, emulator containers, and save states are unsupported.
-- File browser uses FAT 8.3 aliases (for example `POKEMO~1.SRM`) rather than long filenames. Paths are bounded to 239 characters.
+- File browser displays validated FAT long filenames (up to 255 UTF-16 code units); unsupported glyphs appear as `?`. **SELECT** shows the full selected name. Missing or corrupt long-name records fall back to the 8.3 alias. File access still uses short aliases internally, with paths bounded to 239 characters.
 - Game identity cannot be proven from SRAM alone. A weak/absent Yellow marker requires confirmation; select the correct game yourself. The format validator rejects malformed layouts and the UI refuses saves with checksum failures.
 - Editing files on the X7 SD card does not edit a separate original Pokémon cartridge. That cartridge's save must already have been transferred to the X7 game save if you want to edit it here.
 
@@ -38,12 +38,14 @@ World/event state, PC items, Pokédex, daycare, original-trainer identity, and P
 
 | Screen | Controls |
 |---|---|
-| File browser | Up/Down selects; Left/Right pages; A opens; B goes to parent; START exits |
+| File browser | Up/Down selects; Left/Right pages; SELECT shows full name; A opens; B goes to parent; START exits |
 | Editor menus | Up/Down selects; A opens; B returns; START on the main menu saves |
 | Pokémon list | Left/Right switches party and boxes; Up/Down selects Pokémon |
 | Numeric editor | Up/Down changes value; Left/Right changes decimal step; A applies; B cancels |
 | Nickname editor | Left/Right moves cursor; Up/Down changes character; SELECT inserts a space; A applies; B cancels |
 | Badges | A toggles selected badge |
+
+Directory pages are cached: cursor movement and full-name viewing perform no SD reads. Changing directory or page scans the directory, so the initial listing can still take time in large folders.
 
 Selecting another save with pending edits requires explicit discard confirmation. The editor modifies existing Pokémon only; empty boxes remain empty.
 
@@ -102,6 +104,7 @@ To exercise the compiled ROM's gamepad UI, banked RAM, filesystem and X7 SPI tra
 python3 -m venv .venv
 .venv/bin/pip install -r tests/requirements.txt
 .venv/bin/python tests/rom_smoke.py
+.venv/bin/python tests/browser_smoke.py
 ```
 
 Screenshots and structured evidence are written under `build/rom-smoke/`. Fixtures are synthetic; no retail Pokémon ROM is included or required. Emulator verification cannot establish electrical compatibility or power-loss safety on a real card.
@@ -111,7 +114,8 @@ Screenshots and structured evidence are written under `build/rom-smoke/`. Fixtur
 - Host checks cover party and all 12 boxes, coherent stats/EXP/PP, main/box checksums, malformed input rejection and unchanged save regions.
 - Disposable FAT32 scenarios cover fragmented files, existing backup names, a full card, backup write failures, corrupt backup readback and overwrite failures.
 - The compiled ROM has completed a gamepad-driven PyBoy run through the X7 SPI model: party/box level changes, money, bag quantity, a new backup, overwrite and remounted readback verification. The backup was byte-identical to the original and the sentinel file remained unchanged.
-- **Not yet verified:** this editor on physical Chromatic/X7 hardware, power interruption recovery, or an edited save booted in a retail Yellow game. Do not treat host/emulator checks as those guarantees.
+- The browser regression measured nine SD sector reads per cursor movement before the fix and zero afterward. It covers long-name display, full-name viewing, page changes and opening the selected save through its short alias. Host cases cover 255-character names, cross-sector LFN records and corrupt-LFN fallback.
+- The owner has run the editor on Chromatic/X7 and reported successful save loading and responsive editing; these browser fixes are emulator-verified pending a hardware retry. **Not yet verified:** a complete physical save-write/readback roundtrip, power interruption recovery, or an edited save booted in retail Yellow.
 
 ## Implementation
 

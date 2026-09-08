@@ -55,7 +55,8 @@ static uint8_t save_extension(const char *name) {
 
 uint8_t storage_list(const char *path, uint16_t start) BANKED {
   FRESULT r;
-  uint16_t skipped = 0;
+  uint16_t skipped = 0, position;
+  const char *display_name;
   storage_stage = ST_BROWSE;
   storage_count = storage_more = 0;
   r = f_opendir(&directory, path);
@@ -78,12 +79,30 @@ uint8_t storage_list(const char *path, uint16_t start) BANKED {
       break;
     }
     strcpy(storage_entries[storage_count].name, info.fname);
+    display_name = info.lfname[0] ? info.lfname : info.fname;
+    /* Before a save is loaded, bank 2 holds full names for the browser page. */
+    for (position = 0;; ++position) {
+      save_set(0x2000u + (uint16_t)storage_count * 256u + position,
+               display_name[position]);
+      if (!display_name[position])
+        break;
+    }
+    for (position = 0; position < 18 && display_name[position]; ++position)
+      storage_entries[storage_count].label[position] = display_name[position];
+    storage_entries[storage_count].label[position] = 0;
     storage_entries[storage_count].directory = (info.fattrib & AM_DIR) != 0;
     ++storage_count;
   }
   if (r != FR_OK)
     return fs_result(r);
   return fs_result(f_closedir(&directory));
+}
+
+void storage_name(uint8_t index, char *name) BANKED {
+  uint16_t position = 0;
+  do {
+    name[position] = save_get(0x2000u + (uint16_t)index * 256u + position);
+  } while (name[position++]);
 }
 
 static uint8_t read_block(FIL *fp) {

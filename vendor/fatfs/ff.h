@@ -278,6 +278,7 @@ typedef struct {
 	TCHAR	fname[FF_LFN_BUF + 1];	/* Primary object name */
 #else
 	TCHAR	fname[12 + 1];	/* Object name */
+	TCHAR	lfname[256];
 #endif
 } FILINFO;
 

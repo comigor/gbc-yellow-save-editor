@@ -10,17 +10,33 @@
 #endif
 
 static char folder[STORAGE_PATH_MAX];
+static char full_name[256];
+
+static void show_name(uint8_t selection) {
+  uint16_t position;
+  storage_name(selection, full_name);
+  ui_page("Full filename");
+  gotoxy(0, 2);
+  for (position = 0; full_name[position]; ++position)
+    putchar(full_name[position]);
+  ui_line(16, "A / B: Return");
+  while (!(ui_key() & (J_A | J_B))) {
+  }
+}
 
 uint8_t browser_choose(char *path) BANKED {
   uint16_t start = 0, length;
-  uint8_t selection = 0, key, result, i;
+  uint8_t selection = 0, key, result, i, reload = 1;
   char *slash;
   strcpy(folder, "/");
   for (;;) {
-    result = storage_list(folder, start);
-    if (result) {
-      show_storage_error(result);
-      return 0;
+    if (reload) {
+      result = storage_list(folder, start);
+      if (result) {
+        show_storage_error(result);
+        return 0;
+      }
+      reload = 0;
     }
     if (selection >= storage_count)
       selection = 0;
@@ -30,10 +46,11 @@ uint8_t browser_choose(char *path) BANKED {
     for (i = 0; i < storage_count; ++i) {
       gotoxy(0, 4 + i);
       printf("%c%s%s", (char)(i == selection ? '>' : ' '),
-             storage_entries[i].name, storage_entries[i].directory ? "/" : "");
+             storage_entries[i].label, storage_entries[i].directory ? "/" : "");
     }
     if (!storage_count)
       ui_line(5, "No SAV/SRM files");
+    ui_line(12, "SELECT: Full name");
     ui_line(13, "Left/Right: page");
     ui_line(14, "A: Open  B: Parent");
     ui_line(15, "START: Exit browser");
@@ -50,11 +67,13 @@ uint8_t browser_choose(char *path) BANKED {
       if (storage_more && start <= 65527u) {
         start += STORAGE_PAGE;
         selection = 0;
+        reload = 1;
       }
     } else if (key & J_LEFT) {
       if (start) {
         start -= STORAGE_PAGE;
         selection = 0;
+        reload = 1;
       }
     } else if (key & J_B) {
       if (length > 1) {
@@ -62,7 +81,10 @@ uint8_t browser_choose(char *path) BANKED {
         slash = text_last(folder, '/');
         slash[1] = 0;
         start = selection = 0;
+        reload = 1;
       }
+    } else if ((key & J_SELECT) && storage_count) {
+      show_name(selection);
     } else if ((key & J_A) && storage_count) {
       if (length + strlen(storage_entries[selection].name) + 2 >=
           STORAGE_PATH_MAX) {
@@ -76,6 +98,7 @@ uint8_t browser_choose(char *path) BANKED {
       strcpy(folder, path);
       strcat(folder, "/");
       start = selection = 0;
+      reload = 1;
     }
   }
 }
