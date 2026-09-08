@@ -33,6 +33,24 @@ def main():
     progress_samples = []
     progress_capture = None
     input_ready = False
+    bar_samples = {stage: set() for stage in (2, 3, 4, 5, 6, 7)}
+    sampled_frames = 0
+
+    def sample_bar():
+        stage = gb.memory[symbols["_storage_stage"]]
+        if stage not in bar_samples:
+            return
+        strip = gb.screen.image.convert("RGB").crop((0, 40, 160, 48))
+        cells = [strip.crop((x * 8, 0, (x + 1) * 8, 8)) for x in range(20)]
+        ink = [len(cell.getcolors()) > 1 for cell in cells]
+        if not (ink[0] and ink[-1]):
+            return
+        filled = sum(ink[1:-1])
+        if ink[1:-1] != [True] * filled + [False] * (18 - filled):
+            return
+        patterns = {cell.tobytes() for cell in cells[1 : filled + 1]}
+        if len(patterns) <= 1:
+            bar_samples[stage].add(filled)
 
     def ready(_):
         nonlocal input_ready
@@ -56,9 +74,12 @@ def main():
     gb.hook_register(0, symbols[".put_char"], printed, None)
 
     def tick(frames):
-        nonlocal progress_capture
+        nonlocal progress_capture, sampled_frames
         for _ in range(frames):
             gb.tick(1, True)
+            sampled_frames += 1
+            if sampled_frames % 8 == 0:
+                sample_bar()
             if progress_capture is not None:
                 gb.screen.image.save(OUT / f"progress-{progress_capture}.png")
                 progress_capture = None
@@ -196,6 +217,14 @@ def main():
                 and 100 in values
                 and any(0 < value < 100 for value in values)
             ), (stage, values)
+            widths = bar_samples[stage]
+            assert any(0 <= width <= 4 for width in widths), (stage, widths)
+            assert any(8 <= width <= 10 for width in widths), (stage, widths)
+            assert any(15 <= width <= 18 for width in widths), (stage, widths)
+        (OUT / "progress-bars.json").write_text(
+            json.dumps({stage: sorted(widths) for stage, widths in bar_samples.items()})
+            + "\n"
+        )
         (OUT / "progress.json").write_text(json.dumps(progress_samples) + "\n")
         (OUT / "edited.srm").write_bytes(edited)
         (OUT / "evidence.json").write_text(
