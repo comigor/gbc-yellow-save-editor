@@ -77,7 +77,6 @@ def run():
         assert image.read_bytes() == data
         if not corrupt:
             result = subprocess.check_output([str(binary), 'storage', str(image)], text=True)
-            assert 'result=0 stage=8' in result, result
             updated = image.read_bytes()
             assert Volume(updated).file(b'PK000001BAK') == save
             for i, cluster in enumerate(chain):

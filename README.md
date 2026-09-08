@@ -30,7 +30,7 @@ World/event state, PC items, Pokédex, daycare, original-trainer identity, and P
 
 1. Save in Pokémon Yellow.
 2. Return through the EverDrive's normal menu and switch games so the pending battery save is written to SD. Do not edit a stale SD copy while Yellow's newer save is still pending in the cartridge.
-3. Copy `yellow-editor.gbc` to the card using an SD reader, then launch it through the EverDrive menu.
+3. Copy `yellow-editor-sprites.gbc` from your private build to the card and launch it through the EverDrive menu. Startup must show **Graphics: ON**. The public `yellow-editor.gbc` works without artwork and displays **Graphics: OFF**.
 4. Press **START**, browse to Yellow's `.srm`/`.sav` file (often under `GBCSYS/SAVE`), and open it.
 5. Edit in memory. Nothing is written to SD until you explicitly confirm **Save to SD**.
 6. Wait for **SAVE VERIFIED**. Reload Yellow through the EverDrive menu; **do not load an older save state**, which can replace the edited game state and later overwrite the battery save.
@@ -48,6 +48,8 @@ World/event state, PC items, Pokédex, daycare, original-trainer identity, and P
 | Badges | A toggles selected badge |
 
 Directory pages are cached: cursor movement and full-name viewing perform no SD reads. Changing directory or page scans the directory, so the initial listing can still take time in large folders.
+
+Slow operations display a phase and progress bar: mounting, directory scans, loading, validation, preparation, original-file checks, backup-name selection, backup creation/sync/readback, save writing/sync/readback. File transfers report bytes processed as a percentage; operations without a known total show an activity bar instead. Completion is reported only after the phase's close/checksum checks succeed. **100% on one phase is not permission to power off; wait for SAVE VERIFIED.**
 
 Selecting another save with pending edits requires explicit discard confirmation. The editor modifies existing Pokémon only; empty boxes remain empty.
 
@@ -77,7 +79,7 @@ Docker BuildKit builds the ROM and runs host-side save integrity tests. GBDK **4
 docker build --output type=local,dest=dist .
 ```
 
-Output: `dist/yellow-editor.gbc`. No Nintendo ROMs, saves, keys, or licensed FPGA software are required to build it. The final Docker stage exports only the ROM.
+Output: `dist/yellow-editor.gbc` (**artwork-free**, **Graphics: OFF**). GitHub's `yellow-editor-artwork-free` artifact is the same variant. For Pokémon sprites, use the private build below. No Nintendo ROMs, saves, keys, or licensed FPGA software are required for the public build.
 
 To retain a compiler image for development:
 
@@ -97,7 +99,7 @@ The default build and public CI artifacts are **artwork-free**. To enable sprite
 make GBDK_HOME=/path/to/gbdk YELLOW_ROM="/path/to/Pokemon Yellow.gb" -j2
 ```
 
-Output: **`build/private/yellow-editor.gbc`** (256 KiB), separate from the 128 KiB artwork-free build. All 151 front sprites are decoded during the build, padded to 56×56, and stored in ROM banks. Party/box lists use Yellow's shared 16×16 category icons. The gamepad UI loads tiles directly from ROM, not SD. Sprites are monochrome, using the same four-shade palette as the editor.
+Output: **`build/private/yellow-editor-sprites.gbc`** (256 KiB), separate from the 128 KiB artwork-free build. Startup shows **Graphics: ON**. All 151 front sprites are decoded during the build, padded to 56×56, and stored in ROM banks. Party/box lists use Yellow's shared 16×16 category icons. The gamepad UI loads tiles directly from ROM, not SD. Sprites are monochrome, using the same four-shade palette as the editor.
 
 Docker uses a gzip-compressed BuildKit secret: the verified ROM compresses below BuildKit's 500 KiB secret limit, and is decompressed only in the extractor's memory. The source game ROM is never copied into an image layer.
 
@@ -109,7 +111,7 @@ docker build --target private-artifact --no-cache-filter private-build \
   --output type=local,dest=dist-private .
 ```
 
-Output: `dist-private/yellow-editor.gbc`. BuildKit secret contents do not affect its cache key; `--no-cache-filter private-build` ensures a different supplied ROM is validated rather than reusing an earlier private layer.
+Output: **`dist-private/yellow-editor-sprites.gbc`**. Copy this file—not `dist/yellow-editor.gbc`—to the X7 for sprites. BuildKit secret contents do not affect its cache key; `--no-cache-filter private-build` ensures a different supplied ROM is validated rather than reusing an earlier private layer.
 
 **Keep the resulting ROM, generated tiles, screenshots and private Docker build cache private.** They contain copyrighted game artwork and are not covered by this project's source-code license. The source ROM is read-only; extraction never modifies it. No download of game ROMs or sprite assets occurs during a build. `private/`, private outputs and common ROM/save extensions are excluded from Git and Docker's ordinary build context. Do not force-add them or upload private cache layers to a public registry.
 
@@ -117,7 +119,7 @@ Private graphics verification (requires the private build and the emulator depen
 
 ```sh
 .venv/bin/python tests/graphics_smoke.py
-.venv/bin/python tests/rom_smoke.py --rom build/private/yellow-editor.gbc
+.venv/bin/python tests/rom_smoke.py --rom build/private/yellow-editor-sprites.gbc
 ```
 
 ## Build locally

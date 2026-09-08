@@ -26,7 +26,7 @@ def tile_pixels(data, width):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--rom", type=Path, default=ROOT / "build/private/yellow-editor.gbc"
+        "--rom", type=Path, default=ROOT / "build/private/yellow-editor-sprites.gbc"
     )
     parser.add_argument("--assets", type=Path, default=ROOT / "build/private/graphics")
     args = parser.parse_args()
@@ -93,11 +93,20 @@ def main():
     gb.set_emulation_speed(0)
     model.install(gb, args.rom.read_bytes())
     log = []
+    input_ready = False
+
+    def ready(_):
+        nonlocal input_ready
+        input_ready = True
+
+    gb.hook_register(0, symbols["_ui_key"], ready, None)
     gb.hook_register(
         0, symbols[".put_char"], lambda _: log.append(chr(gb.register_file.A)), None
     )
 
     def tap(key):
+        nonlocal input_ready
+        input_ready = False
         log.clear()
         gb.button_press(key)
         gb.tick(10, True)
@@ -106,7 +115,7 @@ def main():
 
     def wait(text):
         for _ in range(12000):
-            if text in "".join(log):
+            if text in "".join(log) and input_ready:
                 return
             gb.tick(10, True)
         raise AssertionError((text, "".join(log)[-200:]))
@@ -129,6 +138,7 @@ def main():
 
     try:
         wait("START: Browse SD")
+        gb.screen.image.save(output / "graphics-enabled.png")
         tap("start")
         wait("START: Exit browser")
         tap("a")

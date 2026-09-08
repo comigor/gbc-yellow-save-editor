@@ -5,6 +5,8 @@ SOURCES := src/boot.c src/main.c src/browser.c src/ui.c src/storage_ui.c src/sto
 
 ifdef YELLOW_ROM
 BUILD := build/private
+ROM_NAME := yellow-editor-sprites
+ROM_TITLE := YELLOWSPRITE
 ROM_BANKS := 16
 CFLAGS += -DYELLOW_GRAPHICS -I$(BUILD)/graphics
 SOURCES += src/graphics.c
@@ -13,12 +15,14 @@ GRAPHICS_OBJECTS := $(addprefix $(BUILD)/graphics/front_,$(addsuffix .o,$(GRAPHI
 GRAPHICS_STAMP := $(BUILD)/graphics/.stamp
 else
 BUILD := build
+ROM_NAME := yellow-editor
+ROM_TITLE := YELLOWEDIT
 ROM_BANKS := 8
 endif
 OBJECTS := $(patsubst %.c,$(BUILD)/%.o,$(SOURCES)) $(GRAPHICS_OBJECTS)
 
 .PHONY: all check FORCE
-all: $(BUILD)/yellow-editor.gbc
+all: $(BUILD)/$(ROM_NAME).gbc
 
 $(BUILD)/%.o: %.c $(wildcard src/*.h) vendor/fatfs/ff.h vendor/fatfs/ffconf.h $(GRAPHICS_STAMP)
 	mkdir -p $(@D)
@@ -33,9 +37,9 @@ $(BUILD)/graphics/%.o: $(GRAPHICS_STAMP)
 	$(LCC) $(CFLAGS) -c -o $@ $(BUILD)/graphics/$*.c
 endif
 
-$(BUILD)/yellow-editor.gbc: $(OBJECTS) tools/check_map.py
-	$(LCC) -Wl-yt0x19 -Wl-yo$(ROM_BANKS) -Wm-ynYELLOWEDIT -Wm-yC -Wl-m -Wl-j -o $@ $(OBJECTS)
-	python3 tools/check_map.py $(BUILD)/yellow-editor.map
+$(BUILD)/$(ROM_NAME).gbc: $(OBJECTS) tools/check_map.py
+	$(LCC) -Wl-yt0x19 -Wl-yo$(ROM_BANKS) -Wm-yn$(ROM_TITLE) -Wm-yC -Wl-m -Wl-j -o $@ $(OBJECTS)
+	python3 tools/check_map.py $(BUILD)/$(ROM_NAME).map
 
 check:
 	python3 tests/check.py

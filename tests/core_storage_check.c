@@ -13,7 +13,20 @@ extern unsigned test_writes;
 static uint8_t before[32768];
 static YellowPokemonView mon;
 
-static void progress(uint8_t stage) { test_stage = stage; }
+static uint16_t last_completed[ST_PREPARE + 1];
+static uint8_t completed_stages[ST_PREPARE + 1];
+static void progress(uint8_t stage, uint16_t completed, uint16_t total) {
+  test_stage = stage;
+  if (total) {
+    assert(completed <= total);
+    if (!completed)
+      last_completed[stage] = 0;
+    assert(completed >= last_completed[stage]);
+    last_completed[stage] = completed;
+    if (completed == total)
+      ++completed_stages[stage];
+  }
+}
 static void load_fixture(const char *path) {
   FILE *f = fopen(path, "rb");
   assert(f);
@@ -137,11 +150,11 @@ int main(int argc, char **argv) {
   assert(test_disk);
   if (argc > 3)
     test_fault = argv[3];
-  assert(storage_mount() == STORE_OK);
+  assert(storage_mount(progress) == STORE_OK);
   if (!strcmp(argv[1], "list")) {
     char name[256];
     uint8_t i;
-    assert(storage_list("/", 0) == STORE_OK);
+    assert(storage_list("/", 0, progress) == STORE_OK);
     for (i = 0; i < storage_count; ++i) {
       storage_name(i, name);
       printf("%s|%s\n", storage_entries[i].name, name);
@@ -150,14 +163,31 @@ int main(int argc, char **argv) {
     fclose(test_disk);
     return 0;
   }
-  assert(storage_list("/", 0) == STORE_OK);
+  assert(storage_list("/", 0, progress) == STORE_OK);
   assert(storage_count == 1 && !strcmp(storage_entries[0].name, "YELLOW.SRM"));
-  result = storage_load("/YELLOW.SRM");
+  result = storage_load("/YELLOW.SRM", progress);
   assert(result == STORE_OK);
   assert(yellow_init() == YE_OK);
   assert(yellow_set_level(0, 0, 50) == YE_OK);
   yellow_flush();
   result = storage_commit(progress);
+  if (result) {
+    assert(!completed_stages[ST_FINISHED]);
+    if (!strcmp(test_fault, "backup-write"))
+      assert(!completed_stages[ST_BACKUP]);
+    if (!strcmp(test_fault, "backup-corrupt"))
+      assert(!completed_stages[ST_VERIFY_BACKUP]);
+    if (!strcmp(test_fault, "save-write"))
+      assert(!completed_stages[ST_WRITE]);
+  } else {
+    assert(completed_stages[ST_LOAD] == 1);
+    assert(completed_stages[ST_CHECK_SOURCE] == 2);
+    assert(completed_stages[ST_BACKUP] == 1);
+    assert(completed_stages[ST_VERIFY_BACKUP] == 1);
+    assert(completed_stages[ST_WRITE] == 1);
+    assert(completed_stages[ST_VERIFY_SAVE] == 1);
+    assert(completed_stages[ST_FINISHED] == 1);
+  }
   printf("result=%u stage=%u writes=%u backup=%s\n", result, storage_stage,
          test_writes, storage_backup);
   fclose(test_disk);

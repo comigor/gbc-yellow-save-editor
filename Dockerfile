@@ -26,7 +26,7 @@ RUN --mount=type=secret,id=yellow_rom,required=true \
     make -j2 YELLOW_ROM=/run/secrets/yellow_rom && make check
 
 FROM scratch AS private-artifact
-COPY --from=private-build /src/build/private/yellow-editor.gbc /yellow-editor.gbc
+COPY --from=private-build /src/build/private/yellow-editor-sprites.gbc /yellow-editor-sprites.gbc
 
 FROM scratch AS artifact
 COPY --from=build /src/build/yellow-editor.gbc /yellow-editor.gbc
